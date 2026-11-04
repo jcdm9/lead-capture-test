@@ -34,13 +34,13 @@
 - **Disadvantages:** Rows with full state names (e.g. CSV line 13) are skipped.
 - **Alternatives considered:** Accept full names and map to codes.
 
-### Email uniqueness lowercase + HTTP 422
+### Email uniqueness lowercase + HTTP 409
 - **Problem:** Emails must be unique; sample CSV has a case variant of an existing email.
-- **Chosen approach:** Normalize emails to lowercase before insert; SQLite `UNIQUE` (with `COLLATE NOCASE` as a backstop); API returns `422` with `errors.email`.
-- **Why:** Core contract uses `422` for validation failures; stretch `409` deferred.
-- **Advantages:** Consistent with other field errors; case-insensitive uniqueness.
-- **Disadvantages:** Clients cannot distinguish “duplicate” from other email failures by status code alone.
-- **Alternatives considered:** `409 Conflict` (stretch goal).
+- **Chosen approach:** Normalize emails to lowercase before insert; SQLite `UNIQUE` (with `COLLATE NOCASE` as a backstop); API returns `409` with `errors.email` for duplicates (field validation stays `422`).
+- **Why:** Stretch goal; keeps duplicate conflicts distinct from validation failures.
+- **Advantages:** Clearer client handling; case-insensitive uniqueness.
+- **Disadvantages:** Diverges slightly from the core README `422`-only examples.
+- **Alternatives considered:** Always `422` for duplicates.
 
 ### SQLite schema with nullable vehicle columns
 - **Problem:** Vehicle is optional and partially filled in the JSON contract.
@@ -67,7 +67,7 @@
 ## Rejected AI Suggestions
 
 - **Accept full state names (e.g. “Victoria”) during import.** Rejected because we deliberately standardized on codes only: simpler validation, consistent storage, and the sample CSV’s full-name row is a useful invalid case rather than something to quietly “fix.”
-- **Return `409` for duplicate emails.** Rejected for now to stick to the core `422` field-error contract; can add later as the stretch goal without changing validation logic.
+- **Always use `422` for duplicate emails.** Initially preferred for a single error shape; later adopted stretch-goal `409` so clients can treat conflicts separately.
 
 ## Outstanding Concerns
 
@@ -77,7 +77,7 @@
 
 ## Future Improvements
 
-- Stretch: filter by state, sorting, client-side validation matching server rules, `409` on duplicate email.
+- Stretch remaining: server-side sorting/filter query params if lists grow large.
 - Richer import summary (per-field skip counts) and optional dry-run mode.
 - Configurable DB path and listen address via flags/env.
 - Narrow `make test` to `./internal/...` (and maybe `./`) to avoid scanning `node_modules`.

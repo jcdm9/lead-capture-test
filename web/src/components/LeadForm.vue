@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { createLead, updateLead } from '../api'
+import { AU_STATES } from '../constants'
 import { ApiError, type CreateLeadRequest, type Lead } from '../types'
+import { hasValidationErrors, validateLead } from '../validation'
 
 const props = defineProps<{
   lead?: Lead | null
@@ -10,17 +12,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   saved: []
 }>()
-
-const AU_STATES = [
-  { code: 'NSW', name: 'New South Wales' },
-  { code: 'VIC', name: 'Victoria' },
-  { code: 'QLD', name: 'Queensland' },
-  { code: 'SA', name: 'South Australia' },
-  { code: 'WA', name: 'Western Australia' },
-  { code: 'TAS', name: 'Tasmania' },
-  { code: 'NT', name: 'Northern Territory' },
-  { code: 'ACT', name: 'Australian Capital Territory' },
-] as const
 
 const form = reactive({
   first_name: '',
@@ -132,12 +123,40 @@ function clearFieldError(...keys: string[]) {
   fieldErrors.value = next
 }
 
+async function focusFirstInvalid() {
+  shakeKey.value += 1
+  await nextTick()
+  document.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus()
+}
+
 async function onSubmit() {
   fieldErrors.value = {}
   formError.value = ''
+
+  const body = buildRequest()
+  const clientErrors = validateLead(body)
+  if (hasValidationErrors(clientErrors)) {
+    fieldErrors.value = clientErrors
+    await focusFirstInvalid()
+    return
+  }
+
+  // Match server normalization before send.
+  body.email = body.email.trim().toLowerCase()
+  body.state = body.state.trim().toUpperCase()
+  if (body.vehicle) {
+    const make = body.vehicle.make.trim()
+    const model = body.vehicle.model?.trim() || null
+    const year = body.vehicle.year
+    if (make === '' && model === null && year === null) {
+      body.vehicle = null
+    } else {
+      body.vehicle = { make, model, year }
+    }
+  }
+
   submitting.value = true
   try {
-    const body = buildRequest()
     if (props.lead) {
       await updateLead(props.lead.id, body)
     } else {
@@ -147,10 +166,7 @@ async function onSubmit() {
   } catch (err) {
     if (err instanceof ApiError && err.errors) {
       fieldErrors.value = err.errors
-      shakeKey.value += 1
-      await nextTick()
-      const firstInvalid = document.querySelector<HTMLElement>('[aria-invalid="true"]')
-      firstInvalid?.focus()
+      await focusFirstInvalid()
     } else if (err instanceof ApiError) {
       formError.value = err.message
     } else {

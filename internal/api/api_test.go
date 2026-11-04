@@ -130,7 +130,7 @@ func TestCreateDuplicateEmail(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	w = httptest.NewRecorder()
 	r.ServeHTTP(w, req)
-	if w.Code != http.StatusUnprocessableEntity {
+	if w.Code != http.StatusConflict {
 		t.Fatalf("duplicate status = %d", w.Code)
 	}
 	var resp struct {

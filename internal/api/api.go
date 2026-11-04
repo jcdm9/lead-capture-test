@@ -154,7 +154,7 @@ func parseID(c *gin.Context) (int64, bool) {
 
 func writeStoreError(c *gin.Context, err error, fallback string) {
 	if errors.Is(err, store.ErrDuplicateEmail) {
-		c.JSON(http.StatusUnprocessableEntity, errorBody{
+		c.JSON(http.StatusConflict, errorBody{
 			Errors: map[string]string{"email": "already exists"},
 		})
 		return

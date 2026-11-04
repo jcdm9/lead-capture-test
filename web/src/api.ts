@@ -2,9 +2,10 @@ import type { CreateLeadRequest, ImportResult, Lead, ValidationErrorResponse } f
 import { ApiError } from './types'
 
 async function readValidationError(res: Response): Promise<never> {
-  if (res.status === 422) {
+  if (res.status === 422 || res.status === 409) {
     const data = (await res.json()) as ValidationErrorResponse
-    throw new ApiError('validation failed', 422, data.errors)
+    const message = res.status === 409 ? 'duplicate email' : 'validation failed'
+    throw new ApiError(message, res.status, data.errors)
   }
   if (res.status === 400) {
     throw new ApiError('malformed request', 400)

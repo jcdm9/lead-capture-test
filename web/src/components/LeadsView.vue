@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { deleteLead, fetchLeads } from '../api'
 import type { Lead } from '../types'
+import { AU_STATES } from '../constants'
 import ConfirmDialog from './ConfirmDialog.vue'
 import CsvImportDropzone from './CsvImportDropzone.vue'
 import type { ImportResult } from '../types'
@@ -46,6 +47,7 @@ const bulkDeleting = ref(false)
 const actionError = ref('')
 const pageSize = ref<(typeof PAGE_SIZE_OPTIONS)[number]>(10)
 const page = ref(1)
+const stateFilter = ref('')
 const confirmOpen = ref(false)
 const deleteTarget = ref<DeleteTarget | null>(null)
 const importReport = ref<ImportResult | null>(null)
@@ -163,8 +165,13 @@ function sortValue(lead: Lead, key: SortKey): string | number {
   }
 }
 
+const filteredLeads = computed(() => {
+  if (!stateFilter.value) return leads.value
+  return leads.value.filter((l) => l.state === stateFilter.value)
+})
+
 const sortedLeads = computed(() => {
-  const rows = [...leads.value]
+  const rows = [...filteredLeads.value]
   const dir = sortDir.value === 'asc' ? 1 : -1
   rows.sort((a, b) => {
     const av = sortValue(a, sortKey.value)
@@ -206,6 +213,10 @@ watch([totalPages, pageSize], () => {
 })
 
 watch(pageSize, () => {
+  page.value = 1
+})
+
+watch(stateFilter, () => {
   page.value = 1
 })
 
@@ -393,6 +404,25 @@ onMounted(load)
       <CsvImportDropzone v-if="leads.length === 0" @imported="onImported" />
 
       <div v-else>
+        <div class="table-toolbar">
+          <label class="table-filter">
+            <span>State</span>
+            <select
+              v-model="stateFilter"
+              class="field-input field-select table-filter-select"
+              aria-label="Filter by state"
+            >
+              <option value="">All states</option>
+              <option v-for="s in AU_STATES" :key="s.code" :value="s.code">
+                {{ s.code }} — {{ s.name }}
+              </option>
+            </select>
+          </label>
+          <p v-if="stateFilter" class="table-filter-meta">
+            Showing {{ totalRows }} of {{ leads.length }}
+          </p>
+        </div>
+
         <div
           v-if="selectedCount > 0"
           class="selection-bar"
